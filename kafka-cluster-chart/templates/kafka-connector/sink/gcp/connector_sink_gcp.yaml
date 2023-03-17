@@ -1,0 +1,14 @@
+{{- if .Values.kafka_connect.sink.gcp -}}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_connect.sink.gcp.connector.name }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka_connect.sink.gcp.name }}
+spec:
+  class: {{ .Values.kafka_connect.sink.gcp.connector.class }}
+  tasksMax: {{ .Values.kafka_connect.sink.gcp.connector.tasksMax }}
+  config:
+    {{- toYaml .Values.kafka_connect.sink.gcp.connector.config | nindent 4 }}
+{{- end -}}

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_ui.name }}
+  labels:
+    app: {{ .Values.kafka_ui.name }}
+spec:
+  replicas: {{ .Values.kafka_ui.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.kafka_ui.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.kafka_ui.name }}
+    spec:
+      volumes:
+        - name: kafka-user-auth-tls
+          secret:
+            secretName: {{ .Values.kafka_user.user.name }}-auth-tls
+      containers:
+        - name: {{ .Values.kafka_ui.containers.name }}
+          image: {{ .Values.kafka_ui.containers.image }}
+          imagePullPolicy: {{ .Values.kafka_ui.containers.imagePullPolicy }}
+          ports:
+            - name: {{ .Values.kafka_ui.containers.ports.name }}
+              containerPort: {{ .Values.kafka_ui.containers.ports.containerPort }}
+              protocol: {{ .Values.kafka_ui.containers.ports.protocol }}
+          resources:
+            {{- toYaml .Values.kafka_ui.containers.resources | nindent 12 }}
+          volumeMounts:
+            - name: kafka-user-auth-tls
+              mountPath: "/tmp"
+              readOnly: true
+          env:
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: "cluster"
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "http://{{ .Values.cluster.name }}-kafka-bootstrap:9093"
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SECURITY_PROTOCOL
+              value: SSL
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_LOCATION
+              value: /tmp/truststore.jks
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kafka_user.user.name }}-auth-tls
+                  key: password
+                  optional: false
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_LOCATION
+              value: /tmp/keystore.p12
+            - name: KAFKA_CLUSTERS_0_PROPERTIES_SSL_KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kafka_user.user.name }}-auth-tls
+                  key: password
+                  optional: false
+            {{- if .Values.kafka_connect.source.mysql }}
+            - name: KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME
+              value: "kafka_connect_source"
+            - name: KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS
+              value: "http://{{ .Values.kafka_connect.source.mysql.name }}-connect-api:8083"
+            {{- end }}
+            {{- if .Values.kafka_connect.sink.gcp }}
+            - name: KAFKA_CLUSTERS_0_KAFKACONNECT_1_NAME
+              value: "kafka_connect_sink"
+            - name: KAFKA_CLUSTERS_0_KAFKACONNECT_1_ADDRESS
+              value: "http://{{ .Values.kafka_connect.sink.gcp.name }}-connect-api:8083"
+            {{- end }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_ui.name }}
+  labels:
+    app: {{ .Values.kafka_ui.name }}
+spec:
+  ports:
+    - port: {{ .Values.kafka_ui.containers.ports.exposePort }}
+      protocol: {{ .Values.kafka_ui.containers.ports.protocol }}
+      targetPort: {{ .Values.kafka_ui.containers.ports.containerPort }}
+  selector:
+    app: {{ .Values.kafka_ui.name }}

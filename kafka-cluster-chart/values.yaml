@@ -1,0 +1,203 @@
+namespace: kafka
+
+cluster:
+  name: cluster
+  kafka:
+    replicas: 3
+    version: 3.3.1
+    listeners:
+      - name: plain
+        port: 9092
+        type: internal
+        tls: false
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+        authentication:
+          type: tls
+    authorization:
+      type: simple
+      # This will allowed to create user
+      superUsers:
+        - CN=user
+    config:
+      offsets.topic.replication.factor: 3
+      transaction.state.log.replication.factor: 3
+      transaction.state.log.min.isr: 2
+      default.replication.factor: 3
+      min.insync.replicas: 2
+      inter.broker.protocol.version: "3.3"
+    storage: 
+      type: jbod
+      volumes:
+        - id: 0
+          type: persistent-claim
+          size: 100Gi
+          deleteClaim: false
+  zookeeper:
+    replicas: 3
+    storage:
+      type: persistent-claim
+      size: 100Gi
+      deleteClaim: false
+
+kafka_user:
+  user:
+    name: user
+    authentication:
+      type: tls
+    authorization:
+      type: simple
+      acls:
+        - resource:
+            type: topic
+            name: "*"
+            patternType: literal
+          operation: All
+        - resource:
+            type: group
+            name: "*"
+            patternType: literal
+          operation: All
+        - resource:
+            type: cluster
+          operation: All
+  sr:
+    name: schema-registry
+    authentication:
+      type: tls
+    authorization:
+      type: simple
+      acls:
+        - resource:
+            type: topic
+            name: "*"
+            patternType: literal
+          operation: All
+        - resource:
+            type: group
+            name: "*"
+            patternType: literal
+          operation: All
+        - resource:
+            type: cluster
+          operation: All
+
+kafka_connect:
+  source:
+    mysql:
+      enable: true
+      name: "kafka-connect-mssql-2019-source-cluster"
+      image: asia.gcr.io/kafka-lab/kafka-connect-mssql2019:v1.0.0
+      version: 3.2.3
+      replicas: 1
+      config:
+        group.id: ms-source-connect-cluster
+        offset.storage.topic: ms-source-connect-cluster-offsets
+        config.storage.topic: ms-source-connect-cluster-configs
+        status.storage.topic: ms-source-connect-cluster-status
+        key.converter.schemas.enable: false
+        value.converter.schemas.enable: false
+        config.storage.replication.factor: 3
+        offset.storage.replication.factor: 3
+        status.storage.replication.factor: 3
+      connector:
+        name: source-sql-server-connector
+        class: io.debezium.connector.sqlserver.SqlServerConnector
+        tasksMax: 1
+        mtls:
+          keystore: keystore.p12
+          truststore: truststore.jks
+          password: 123qweasdzxc
+        config:
+          topic: cloudSQL.dbo.random
+          connector.class: io.debezium.connector.sqlserver.SqlServerConnector
+          database.hostname: 10.242.128.3
+          database.port: 1433
+          database.dbname: animal
+          database.user: sqlserver
+          database.password: 3>;#~Y$cF_t2pK%8
+          database.server.name: cloudSQL
+          database.encrypt: true
+          database.ssl: true
+          database.trustServerCertificate: true
+          key.converter.schemas.enable: false
+          value.converter.schemas.enable: false
+          table.include.list: dbo.random
+          offset.flush.interval.ms: 15000
+          errors.deadletterqueue.topic.name: cdc_random-topic
+          poll.interval.ms: 1000
+          errors.tolerance: all
+          snapshot.mode: initial
+          database.history.kafka.topic: booboo.history.random-topic
+  sink:
+    gcp:
+      enable: true
+      name: "kafka-connect-gcs-sink-cluster"
+      image: asia.gcr.io/kafka-lab/kafka-connect-gcs:v1.0.0
+      version: 3.2.3
+      replicas: 1
+      config:
+        group.id: gcs-sink-connect-cluster
+        offset.storage.topic: gcs-sink-connect-cluster-offsets
+        config.storage.topic: gcs-sink-connect-cluster-configs
+        status.storage.topic: gcs-sink-connect-cluster-status
+        key.converter.schemas.enable: false
+        value.converter.schemas.enable: false
+        config.storage.replication.factor: 3
+        offset.storage.replication.factor: 3
+        status.storage.replication.factor: 3
+        ssl.cipher.suites: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        ssl.enabled.protocols: "TLSv1.2"
+        ssl.protocol: "TLSv1.2"
+        ssl.endpoint.identification.algorithm: HTTPS
+      connector:
+        name: sink-gcs-connector
+        class: io.aiven.kafka.connect.gcs.GcsSinkConnector
+        tasksMax: 2
+        config:
+          file: /opt/kafka/LICENSE
+          topics: cloudSQL.dbo.random
+          tasks.max: 1
+          format.output.type: "jsonl"
+          key.converter.schemas.enable: false
+          value.converter.schemas.enable: false
+          gcs.bucket.name: "kafka-source-lab"
+          file.name.prefix: "animal/random/"
+          file.compression.type: "gzip"
+          format.output.fields: "key,value,offset,timestamp"
+          file.name.template: "{{timestamp:unit=yyyy}}/{{timestamp:unit=MM}}/{{timestamp:unit=dd}}/{{topic}}-{{partition}}-{{start_offset}}.gz"
+          gcs.credentials.json: |
+            {
+              "type": "service_account",
+              "project_id": "kafka-lab",
+              "private_key_id": "<private_key_id>",
+              "private_key": "<private_key>",
+              "client_email": "kafka-lab@kafka-lab.iam.gserviceaccount.com",
+              "client_id": "<client_id>",
+              "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+              "token_uri": "https://oauth2.googleapis.com/token",
+              "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+              "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/kafka-lab%40kafka-lab.iam.gserviceaccount.com"
+            }
+
+kafka_ui:
+  name: kafka-ui
+  replicas: 1
+  containers:
+    name: ui
+    image: provectuslabs/kafka-ui:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+      name: http
+      containerPort: 8080
+      protocol: TCP
+      exposePort: 80
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi

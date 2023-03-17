@@ -1,0 +1,26 @@
+{{- if .Values.kafka_connect.source.mysql -}}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_connect.source.mysql.connector.name }}
+  labels:
+    strimzi.io/cluster: {{ .Values.kafka_connect.source.mysql.name }}
+spec:
+  class: {{ .Values.kafka_connect.source.mysql.connector.class }}
+  tasksMax: {{ .Values.kafka_connect.source.mysql.connector.tasksMax }}
+  config:
+    {{- toYaml .Values.kafka_connect.source.mysql.connector.config | nindent 4 }}
+    # TLS configuration
+    database.history.kafka.bootstrap.servers: "{{ .Values.cluster.name }}-kafka-bootstrap:9093"
+    database.history.producer.security.protocol: SSL
+    database.history.producer.ssl.keystore.location: /opt/kafka/external-configuration/kafka-user-auth-tls/{{ .Values.kafka_connect.source.mysql.connector.mtls.keystore }}
+    database.history.producer.ssl.keystore.password: {{ .Values.kafka_connect.source.mysql.connector.mtls.password }}
+    database.history.producer.ssl.truststore.location: /opt/kafka/external-configuration/kafka-user-auth-tls/{{ .Values.kafka_connect.source.mysql.connector.mtls.truststore }}
+    database.history.producer.ssl.truststore.password: {{ .Values.kafka_connect.source.mysql.connector.mtls.password }}
+    database.history.consumer.security.protocol: SSL
+    database.history.consumer.ssl.keystore.location: /opt/kafka/external-configuration/kafka-user-auth-tls/{{ .Values.kafka_connect.source.mysql.connector.mtls.keystore }}
+    database.history.consumer.ssl.keystore.password: {{ .Values.kafka_connect.source.mysql.connector.mtls.password }}
+    database.history.consumer.ssl.truststore.location: /opt/kafka/external-configuration/kafka-user-auth-tls/{{ .Values.kafka_connect.source.mysql.connector.mtls.truststore }}
+    database.history.consumer.ssl.truststore.password: {{ .Values.kafka_connect.source.mysql.connector.mtls.password }}
+{{- end -}}

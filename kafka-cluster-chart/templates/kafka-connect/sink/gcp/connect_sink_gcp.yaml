@@ -1,0 +1,26 @@
+{{- if .Values.kafka_connect.sink.gcp -}}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_connect.sink.gcp.name }}
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  image: {{ .Values.kafka_connect.sink.gcp.image | quote }}
+  version: {{ .Values.kafka_connect.sink.gcp.version }}
+  replicas: {{ .Values.kafka_connect.sink.gcp.replicas }}
+  bootstrapServers: "{{ .Values.cluster.name }}-kafka-bootstrap:9093"
+  tls:
+    trustedCertificates:
+      - secretName: "{{ .Values.cluster.name }}-cluster-ca-cert"
+        certificate: ca.crt
+  authentication:
+    type: tls
+    certificateAndKey:
+      secretName: {{ .Values.kafka_user.user.name }}
+      certificate: {{ .Values.kafka_user.user.name }}.crt
+      key: {{ .Values.kafka_user.user.name }}.key
+  config:
+    {{- toYaml .Values.kafka_connect.sink.gcp.config | nindent 4 }}
+{{- end -}}

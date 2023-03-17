@@ -1,0 +1,34 @@
+{{- if .Values.kafka_connect.source.mysql -}}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  namespace: {{ .Values.namespace }}
+  name: {{ .Values.kafka_connect.source.mysql.name }}
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  image: {{ .Values.kafka_connect.source.mysql.image | quote }}
+  version: {{ .Values.kafka_connect.source.mysql.version }}
+  replicas: {{ .Values.kafka_connect.source.mysql.replicas }}
+  bootstrapServers: "{{ .Values.cluster.name }}-kafka-bootstrap:9093"
+  tls:
+    trustedCertificates:
+      - secretName: "{{ .Values.cluster.name }}-cluster-ca-cert"
+        certificate: ca.crt
+  authentication:
+    type: tls
+    certificateAndKey:
+      secretName: {{ .Values.kafka_user.user.name }}
+      certificate: {{ .Values.kafka_user.user.name }}.crt
+      key: {{ .Values.kafka_user.user.name }}.key
+  externalConfiguration:
+    volumes:
+      - name: kafka-user-auth-tls
+        secret:
+          secretName: {{ .Values.kafka_user.user.name }}-auth-tls
+  config:
+    config.providers: directory,secrets
+    config.providers.directory.class: org.apache.kafka.common.config.provider.DirectoryConfigProvider
+    config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
+    {{- toYaml .Values.kafka_connect.source.mysql.config | nindent 4 }}
+{{- end -}}
