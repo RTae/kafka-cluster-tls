@@ -1,5 +1,0 @@
-{
-    "yaml.schemas": {
-        "https://json.schemastore.org/yamllint.json": "file:///Users/natthanan.bhu/workspace/personal/kafka/kafka-cluster-chart/values.yaml"
-    }
-}
